@@ -1,13 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <getopt.h>
-#include <stdint.h>
-
-void error_handling(char *message);
+#include "buffer-overflow.h"
 
 void usage(const char *pname)
 {
@@ -21,10 +12,9 @@ void usage(const char *pname)
 int main(int argc, char *argv[])
 {
 	int sock;
+  char buf[CBUFLEN] = {0, };
+	int ret, c, port, tmp, len;
 	struct sockaddr_in serv_addr;
-  char buf[128] = {0, };
-	char message[30] = {0, };
-	int c, port, tmp, str_len;
   uint8_t *pname, *addr;
   uint8_t eflag;
 
@@ -92,39 +82,98 @@ int main(int argc, char *argv[])
 	serv_addr.sin_addr.s_addr = inet_addr(addr);
 	serv_addr.sin_port = htons(port);
 
+  // Connect to the server
 	if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
 		error_handling("connect() error");
 	
   printf("[*] Connected to %s:%d\n", addr, port);
-  str_len = read(sock, message, sizeof(message));
-  if (str_len == -1)
+
+  // Receive the first message, requiring an account
+  ret = read(sock, &len, LBYTES);
+  if (ret < 0)
     error_handling("read() error");
+  len = ntohs(len);
+  printf("[*] Will receive %d bytes", len);
+  if (len > CBUFLEN)
+    printf(". The buffer overflow will happen");
+  printf("\n");
 
-  printf("[*] Read the first message: %.*s\n", str_len, message);
+  ret = read(sock, buf, len);
+  if (ret < 0)
+    error_handling("read() error");
+  buf[len] = 0;
+  printf("[*] Read the first message: %.*s\n", len, buf);
+
+  // Get the user's input (account)
+  memset(buf, 0, CBUFLEN);
   scanf("%s", buf);
-  str_len = write(sock, buf, strlen(buf));
-  if (str_len == -1)
+
+  // Send the account
+  len = (int)strlen(buf);
+  len = htons(len);
+  ret = write(sock, &len, LBYTES);
+  if (ret < 0)
+    error_handling("write() error");
+  len = ntohs(len);
+
+  printf("[*] Will send %d bytes\n", len);
+  ret = write(sock, buf, len);
+  if (ret < 0)
     error_handling("write() error");
 
-  memset(message, 0, sizeof(message));
-	str_len = read(sock, message, sizeof(message));
-	if (str_len == -1)
+  // Receive the second message, requiring a password
+  memset(buf, 0, CBUFLEN);
+  ret = read(sock, &len, LBYTES);
+  if (ret < 0)
+    error_handling("read() error");
+  len = ntohs(len);
+   printf("[*] Will receive %d bytes", len);
+  if (len > CBUFLEN)
+    printf(". The buffer overflow will happen");
+  printf("\n");
+ 
+	ret = read(sock, buf, len);
+	if (ret < 0)
 		error_handling("read() error");
+  buf[len] = 0;
 	
-	printf("[*] Read the second message: %.*s\n", str_len, message);
-  memset(buf, 0, sizeof(buf));
+	printf("[*] Read the second message: %.*s\n", len, buf);
+
+  // Get the user's input (password)
+  memset(buf, 0, CBUFLEN);
   scanf("%s", buf);
 
-  str_len = write(sock, buf, strlen(buf));
-  if (str_len == -1)
+  // Send the password
+  len = (int)strlen(buf);
+  len = htons(len);
+  ret = write(sock, &len, LBYTES);
+  if (ret < 0)
     error_handling("write() error");
+  len = ntohs(len);
+
+  printf("[*] Will send %d bytes\n", len);
+  ret = write(sock, buf, len);
+  if (ret < 0)
+    error_handling("write() error");
+
+  // Receive the result
+  memset(buf, 0, CBUFLEN);
+  ret = read(sock, &len, LBYTES);
+  if (ret < 0)
+    error_handling("read() error");
+  len = ntohs(len);
+  printf("[*] Will receive %d bytes", len);
+  if (len > CBUFLEN)
+    printf(". The buffer overflow will happen");
+  printf("\n");
+
+  ret = read(sock, buf, len);
+  if (ret < 0)
+    error_handling("read() error");
+  buf[len] = 0;
+
+  printf("[*] Result: %.*s\n", len, buf);
+
 	close(sock);
 	return 0;
-}
-
-void error_handling(char *message)
-{
-	fputs(message, stderr);
-	fputc('\n', stderr);
-	exit(1);
 }
