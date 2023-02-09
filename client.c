@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
   if (ret < 0)
     error_handling("read() error");
   buf[len] = 0;
+  printf("[*] Received %d bytes\n", ret);
   printf("[*] Read the first message: %.*s\n", len, buf);
 
   // Get the user's input (account)
@@ -115,11 +116,12 @@ int main(int argc, char *argv[])
   if (ret < 0)
     error_handling("write() error");
   len = ntohs(len);
-
   printf("[*] Will send %d bytes\n", len);
+
   ret = write(sock, buf, len);
   if (ret < 0)
     error_handling("write() error");
+  printf("[*] Sent %d bytes\n", ret);
 
   // Receive the second message, requiring a password
   memset(buf, 0, CBUFLEN);
@@ -136,6 +138,7 @@ int main(int argc, char *argv[])
 	if (ret < 0)
 		error_handling("read() error");
   buf[len] = 0;
+  printf("[*] Received %d bytes\n", ret);
 	
 	printf("[*] Read the second message: %.*s\n", len, buf);
 
@@ -150,11 +153,12 @@ int main(int argc, char *argv[])
   if (ret < 0)
     error_handling("write() error");
   len = ntohs(len);
-
   printf("[*] Will send %d bytes\n", len);
+
   ret = write(sock, buf, len);
   if (ret < 0)
     error_handling("write() error");
+  printf("[*] Sent %d bytes\n", ret);
 
   // Receive the result
   memset(buf, 0, CBUFLEN);
@@ -171,6 +175,7 @@ int main(int argc, char *argv[])
   if (ret < 0)
     error_handling("read() error");
   buf[len] = 0;
+  printf("[*] Receive %d bytes", ret);
 
   printf("[*] Result: %.*s\n", len, buf);
 
