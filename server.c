@@ -8,32 +8,153 @@ void usage(const char *pname)
   exit(0);
 }
 
-int main(int argc, char *argv[])
+void process(int sock)
 {
-	int serv_sock;
-	int clnt_sock;
-  const char *pname;
-  uint8_t eflag;
-  int c, ret, len, port, tmp;
-
-	struct sockaddr_in serv_addr;
-	struct sockaddr_in clnt_addr;
-	socklen_t clnt_addr_size;
-
   const char *first = "Enter your account: ";
   const char *second = "Enter your password: ";
   const char *answer = "correctpassword";
   const char *correct = "You are signed in with the root privilege";
   const char *incorrect = "You are not allowed to sign in";
 
+  int pass, ret, len;
+  char buf[SBUFLEN];
+
+  memset(buf, 0, SBUFLEN);
+  pass = 0;
+
+  // Send the first message requiring an account
+  len = strlen(first);
+  len = htons(len);
+  ret = write(sock, &len, LBYTES);
+  if (ret < 0)
+    error_handling("write() error");
+  len = ntohs(len);
+
+  printf("[*] Will send %d bytes\n", len);
+  ret = write(sock, first, len);
+  if (ret < 0)
+    error_handling("write() error");
+
+  // Receive the accout
+  ret = read(sock, &len, LBYTES);
+  if (ret < 0)
+    error_handling("read() error");
+  len = ntohs(len);
+  printf("[*] Will receive %d bytes", len);
+  if (len > SBUFLEN)
+    printf(". The buffer overflow will happen");
+  printf("\n");
+
+  ret = read(sock, buf, len);
+  if (ret < 0)
+    error_handling("read() error");
+  buf[len] = 0;
+
+  // Print the received account
+  printf("[*] Account from client: %s\n", buf);
+  memset(buf, 0, SBUFLEN);
+
+  // Send the second message requiring a password
+  len = strlen(second);
+  len = htons(len);
+  ret = write(sock, &len, LBYTES);
+  if (ret < 0)
+    error_handling("write() error");
+  len = ntohs(len);
+
+  printf("[*] Will send %d bytes\n", len);
+  ret = write(sock, second, len);
+  if (ret < 0)
+    error_handling("write() error");
+
+  // Receive the password
+  ret = read(sock, &len, LBYTES);
+  if (ret < 0)
+    error_handling("read() error");
+  len = ntohs(len);
+  printf("[*] Will receive %d bytes", len);
+  if (len > SBUFLEN)
+    printf(". The buffer overflow will happen");
+  printf("\n");
+
+  printf("first: %p, second: %p, answer: %p, correct: %p, incorrect: %p, buf: %p, ret: %p, len: %p, pass: %p\n",
+      first, second, answer, correct, incorrect, buf, &ret, &len, &pass);
+  printf("&(buf[0]): %p, &(buf[SBUFLEN]): %p\n", &(buf[0]), &(buf[SBUFLEN]));
+  printf("ret: %d, len: %d, pass: %d\n", ret, len, pass);
+  ret = read(sock, buf, len);
+  if (ret < 0)
+    error_handling("read() error");
+  buf[len] = 0;
+  printf("first: %p, second: %p, answer: %p, correct: %p, incorrect: %p, buf: %p, ret: %p, len: %p, pass: %p\n",
+      first, second, answer, correct, incorrect, buf, &ret, &len, &pass);
+  printf("&(buf[0]): %p, &(buf[SBUFLEN]): %p\n", &(buf[0]), &(buf[SBUFLEN]));
+  printf("ret: %d, len: %d, pass: %d\n", ret, len, pass);
+  ret = read(sock, buf, len);
+
+  // Print the received password
+  printf("[*] Password from client: %s\n", buf);
+
+  // Check if the password is correct
+  if (!strncmp((const char *)buf, answer, strlen(answer)))
+  {
+    printf("[*] Password is correct!\n");
+    pass = 1;
+  }
+  else
+  {
+    printf("[*] Password is incorrect!\n");
+  }
+
+  printf("\npass = %d\n\n", pass);
+  if (pass)
+  {
+    printf("[*] The client is logged in and has the root privilege!\n");
+
+    // Send the result
+    len = strlen(correct);
+    len = htons(len);
+    ret = write(sock, &len, LBYTES);
+    if (ret < 0)
+      error_handling("write() error");
+    len = ntohs(len);
+
+    printf("[*] Will send %d bytes\n", len);
+    ret = write(sock, correct, len);
+    if (ret < 0)
+      error_handling("write() error");
+  }
+  else
+  {
+    // Send the result
+    len = strlen(incorrect);
+    len = htons(len);
+    ret = write(sock, &len, LBYTES);
+    if (ret < 0)
+      error_handling("write() error");
+    len = ntohs(len);
+
+    printf("[*] Will send %d bytes\n", len);
+    ret = write(sock, incorrect, len);
+    if (ret < 0)
+      error_handling("write() error");
+  }
+}
+
+int main(int argc, char *argv[])
+{
+  int serv_sock, clnt_sock, c, port;
+  const char *pname;
+  uint8_t eflag;
+
+	struct sockaddr_in serv_addr;
+	struct sockaddr_in clnt_addr;
+	socklen_t clnt_addr_size;
+
   char addr[SBUFLEN] = {0, };
-  char buf[SBUFLEN] = {0, };
-  int pass;
 
   port = -1;
   eflag = 0;
   pname = argv[0];
-  pass = 0;
 
   while (1)
   {
@@ -99,116 +220,9 @@ int main(int argc, char *argv[])
       inet_ntop(AF_INET, &(clnt_addr.sin_addr), addr, INET_ADDRSTRLEN);
       printf("[*] Accept a client from %s:%d\n", addr, ntohs(clnt_addr.sin_port));
 
-      // Send the first message requiring an account
-      len = strlen(first);
-      len = htons(len);
-      ret = write(clnt_sock, &len, LBYTES);
-      if (ret < 0)
-        error_handling("write() error");
-      len = ntohs(len);
-
-      printf("[*] Will send %d bytes\n", len);
-      ret = write(clnt_sock, first, len);
-      if (ret < 0)
-        error_handling("write() error");
-
-      // Receive the accout
-      ret = read(clnt_sock, &len, LBYTES);
-      if (ret < 0)
-        error_handling("read() error");
-      len = ntohs(len);
-      printf("[*] Will receive %d bytes", len);
-      if (len > SBUFLEN)
-        printf(". The buffer overflow will happen");
-      printf("\n");
-
-      ret = read(clnt_sock, buf, len);
-      if (ret < 0)
-        error_handling("read() error");
-      buf[len] = 0;
-
-      // Print the received account
-      printf("[*] Account from client: %s\n", buf);
-      memset(buf, 0, SBUFLEN);
-
-      // Send the second message requiring a password
-      len = strlen(second);
-      len = htons(len);
-      ret = write(clnt_sock, &len, LBYTES);
-      if (ret < 0)
-        error_handling("write() error");
-      len = ntohs(len);
-
-      printf("[*] Will send %d bytes\n", len);
-      ret = write(clnt_sock, second, len);
-      if (ret < 0)
-        error_handling("write() error");
-
-      // Receive the password
-      ret = read(clnt_sock, &len, LBYTES);
-      if (ret < 0)
-        error_handling("read() error");
-      len = ntohs(len);
-      printf("[*] Will receive %d bytes", len);
-      if (len > SBUFLEN)
-        printf(". The buffer overflow will happen");
-      printf("\n");
-
-      ret = read(clnt_sock, buf, len);
-      if (ret < 0)
-        error_handling("read() error");
-      buf[len] = 0;
-
-      printf("[*] Password from client: %s\n", buf);
-
-      // Check if the password is correct
-      if (!strncmp((const char *)buf, answer, strlen(answer)))
-      {
-        printf("[*] Password is correct!\n");
-        pass = 1;
-      }
-      else
-      {
-        printf("[*] Password is incorrect!\n");
-      }
-
-      printf("\npass = %d\n\n", pass);
-      if (pass)
-      {
-        printf("[*] The client is logged in and has the root privilege!\n");
-
-        // Send the result
-        len = strlen(correct);
-        len = htons(len);
-        ret = write(clnt_sock, &len, LBYTES);
-        if (ret < 0)
-          error_handling("write() error");
-        len = ntohs(len);
-
-        printf("[*] Will send %d bytes\n", len);
-        ret = write(clnt_sock, correct, len);
-        if (ret < 0)
-          error_handling("write() error");
-      }
-      else
-      {
-        // Send the result
-        len = strlen(incorrect);
-        len = htons(len);
-        ret = write(clnt_sock, &len, LBYTES);
-        if (ret < 0)
-          error_handling("write() error");
-        len = ntohs(len);
-
-        printf("[*] Will send %d bytes\n", len);
-        ret = write(clnt_sock, incorrect, len);
-        if (ret < 0)
-          error_handling("write() error");
-      }
+      process(clnt_sock);
 
       printf("[*] Bye-bye!\n");
-      memset(buf, 0, SBUFLEN);
-      pass = 0;
   	  close(clnt_sock);
     }
   }

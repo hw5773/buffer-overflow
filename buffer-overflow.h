@@ -10,7 +10,7 @@
 #include <getopt.h>
 #include <stdint.h>
 
-#define SBUFLEN 32
+#define SBUFLEN 16
 #define CBUFLEN 256
 #define LBYTES 4
 
