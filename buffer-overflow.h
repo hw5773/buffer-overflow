@@ -13,6 +13,8 @@
 
 #define SBUFLEN 16
 #define CBUFLEN 256
+#define RBUFLEN 1024
+#define WBUFLEN 1024
 #define LBYTES 4
 #define MAX_THREADS 120
 

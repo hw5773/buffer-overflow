@@ -4,7 +4,7 @@ OBJS=$(SRCS:.c=.o)
 all: server client server-web
 
 server-web: server-web.o common.o
-	gcc -o $@ $^
+	gcc -o $@ $^ -lpthread
 
 server: server.o common.o
 	gcc -o $@ $^

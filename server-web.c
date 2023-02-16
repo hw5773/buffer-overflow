@@ -10,7 +10,8 @@ void usage(const char *pname)
 
 void *process(void *data)
 {
-  const char *first = "Enter your account: ";
+  const char *response_header = "HTTP/1.1 200 OK\r\nContent-Length: %lu\r\n\r\n";
+  const char *main = "<html><head><title>Buffer Overflow Test</title></head><body><h1>Buffer Overflow</h1><form><table><tr><td>Enter your account:</td><td><input id='account' type='text'/></td></tr><tr><td>Enter your password:</td><td><input id='password' type='password'/></td></tr><tr><td colspan=2 align='center'><input type='submit'></td></table></form></body></html>";
   const char *second = "Enter your password: ";
   const char *answer = "correctpassword";
   const char *correct = "You are signed in with the root privilege";
@@ -18,6 +19,8 @@ void *process(void *data)
 
   int pass;
   char buf[SBUFLEN];
+  char rbuf[RBUFLEN];
+  char wbuf[WBUFLEN];
   int ret, len, sock;
 
   memset(buf, 0, SBUFLEN);
@@ -25,41 +28,43 @@ void *process(void *data)
 
   sock = ((info_t *)data)->sock;
 
-  printf("[*] Address information\n");
-  printf("    first: %p, second: %p, answer: %p\n", first, second, answer);
+  printf("[%d] Address information\n", sock);
+  printf("    main: %p, second: %p, answer: %p\n", main, second, answer);
   printf("    correct: %p, incorrect: %p\n", correct, incorrect);
   printf("    buf: %p, ret: %p, len: %p, pass: %p\n", buf, &ret, &len, &pass);
   printf("    &(buf[0]): %p, &(buf[SBUFLEN]): %p\n", &(buf[0]), &(buf[SBUFLEN]));
 
-  // Send the first message requiring an account
-  len = strlen(first);
-  len = htons(len);
-  ret = write(sock, &len, LBYTES);
-  if (ret < 0)
-    error_handling("write() error");
-  len = ntohs(len);
-  printf("[*] Will send %d bytes\n", len);
+  // Receive the HTTP request from a client
+  ret = read(sock, rbuf, RBUFLEN);
+  rbuf[ret] = 0;
+  printf("[%d] Received: %s\n", sock, rbuf);
 
-  ret = write(sock, first, len);
+  // Send the first message requiring an account
+  memset(wbuf, 0, WBUFLEN);
+  len = sprintf(wbuf, response_header, strlen(main));
+  ret = write(sock, wbuf, len);
   if (ret < 0)
     error_handling("write() error");
-  printf("[*] Sent %d bytes\n", ret);
+  printf("[%d] Sent %d bytes\n", sock, ret);
+  ret = write(sock, main, strlen(main));
+  if (ret < 0)
+    error_handling("write() error");
+  printf("[%d] Sent %d bytes\n", sock, ret);
+
+  // Process favicon.ico (simply ignore it)
+  memset(rbuf, 0, RBUFLEN);
+  ret = read(sock, rbuf, RBUFLEN);
+  rbuf[ret] = 0;
+  printf("[%d] Received: %s\n", sock, rbuf);
 
   // Receive the accout
-  ret = read(sock, &len, LBYTES);
+  memset(rbuf, 0, RBUFLEN);
+  ret = read(sock, rbuf, RBUFLEN);
   if (ret < 0)
     error_handling("read() error");
-  len = ntohs(len);
-  printf("[*] Will receive %d bytes", len);
-  if (len > SBUFLEN)
-    printf(". The buffer overflow will happen");
-  printf("\n");
+  rbuf[ret] = 0;
+  printf("[%d] Received: %s", sock, rbuf);
 
-  ret = read(sock, buf, len);
-  if (ret < 0)
-    error_handling("read() error");
-  buf[len] = 0;
-  printf("[*] Received %d bytes\n", ret);
 
   // Print the received account
   printf("[*] Account from client: %s\n", buf);
@@ -226,7 +231,7 @@ int main(int argc, char *argv[])
 	if (bind(serv_sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) == -1)
 		error_handling("bind() error");
 	
-	if (listen(serv_sock, 5) == -1)
+	if (listen(serv_sock, MAX_THREADS) == -1)
 		error_handling("listen() error");
 	
 	clnt_addr_size = sizeof(clnt_addr);
@@ -240,6 +245,7 @@ int main(int argc, char *argv[])
       inet_ntop(AF_INET, &(clnt_addr.sin_addr), addr, INET_ADDRSTRLEN);
       printf("[*] Accept a client from %s:%d\n", addr, ntohs(clnt_addr.sin_port));
 
+      info[tidx].sock = clnt_sock;
       rc = pthread_create(&threads[tidx], &attr, process, &info[tidx]);
       if (rc < 0)
       {
