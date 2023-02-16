@@ -1,7 +1,10 @@
 SRCS=$(wildcard *.c)
 OBJS=$(SRCS:.c=.o)
 
-all: server client
+all: server client server-web
+
+server-web: server-web.o common.o
+	gcc -o $@ $^
 
 server: server.o common.o
 	gcc -o $@ $^
@@ -14,4 +17,4 @@ client: client.o common.o
 	@echo "CC <= $<"
 
 clean:
-	$(RM) server client $(OBJS) 
+	$(RM) server client server-web $(OBJS) 
