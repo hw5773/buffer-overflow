@@ -13,9 +13,9 @@ int main(int argc, char *argv[])
 {
 	int sock;
   char buf[CBUFLEN] = {0, };
-	int ret, c, port, tmp, len;
+	int ret, c, port, tmp, len, alen, plen;
 	struct sockaddr_in serv_addr;
-  uint8_t *pname, *addr;
+  uint8_t *pname, *addr, *account, *password;
   uint8_t eflag;
 
   pname = argv[0];
@@ -29,10 +29,12 @@ int main(int argc, char *argv[])
     static struct option long_options[] = {
       {"addr", required_argument, 0, 'a'},
       {"port", required_argument, 0, 'p'},
+      {"account", required_argument, 0, 'x'},
+      {"password", required_argument, 0, 'y'},
       {0, 0, 0, 0}
     };
 
-    const char *opt = "a:p:0";
+    const char *opt = "a:p:x:y:0";
 
     c = getopt_long(argc, argv, opt, long_options, &option_index);
 
@@ -49,6 +51,20 @@ int main(int argc, char *argv[])
 
       case 'p':
         port = atoi(optarg);
+        break;
+
+      case 'x':
+        tmp = strlen(optarg);
+        alen = tmp;
+        account = (uint8_t *)malloc(tmp);
+        memcpy(account, optarg, tmp);
+        break;
+
+      case 'y':
+        tmp = strlen(optarg);
+        plen = tmp;
+        password = (uint8_t *)malloc(tmp);
+        memcpy(password, optarg, tmp);
         break;
 
       default:
@@ -105,20 +121,15 @@ int main(int argc, char *argv[])
   printf("[*] Received %d bytes\n", ret);
   printf("[*] Read the first message: %.*s\n", len, buf);
 
-  // Get the user's input (account)
-  memset(buf, 0, CBUFLEN);
-  scanf("%s", buf);
-
   // Send the account
-  len = (int)strlen(buf);
-  len = htons(len);
+  len = htons(alen);
   ret = write(sock, &len, LBYTES);
   if (ret < 0)
     error_handling("write() error");
   len = ntohs(len);
   printf("[*] Will send %d bytes\n", len);
 
-  ret = write(sock, buf, len);
+  ret = write(sock, account, alen);
   if (ret < 0)
     error_handling("write() error");
   printf("[*] Sent %d bytes\n", ret);
@@ -142,20 +153,15 @@ int main(int argc, char *argv[])
 	
 	printf("[*] Read the second message: %.*s\n", len, buf);
 
-  // Get the user's input (password)
-  memset(buf, 0, CBUFLEN);
-  scanf("%s", buf);
-
   // Send the password
-  len = (int)strlen(buf);
-  len = htons(len);
+  len = htons(plen);
   ret = write(sock, &len, LBYTES);
   if (ret < 0)
     error_handling("write() error");
   len = ntohs(len);
   printf("[*] Will send %d bytes\n", len);
 
-  ret = write(sock, buf, len);
+  ret = write(sock, password, plen);
   if (ret < 0)
     error_handling("write() error");
   printf("[*] Sent %d bytes\n", ret);
