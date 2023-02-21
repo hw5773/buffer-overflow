@@ -1,10 +1,9 @@
-import os, sys, logging
-import argparse
-import subprocess
+import logging, argparse, subprocess, signal, time, os, sys
 from flask import Flask, json, jsonify, abort, request, make_response
 from flask_restful import Api, Resource, reqparse
 from flask_httpauth import HTTPBasicAuth
 from flask_cors import CORS
+from func import get_address, make_index_html, make_success_html, make_failure_html, make_valid_html
 
 app = Flask(__name__)
 app.config['CORS_HEADERS'] = 'Content-Type'
@@ -12,6 +11,13 @@ api = Api(app)
 auth = HTTPBasicAuth()
 
 cors = CORS(app)
+
+def signal_handler(sig, frame):
+    if os.path.exists("address"):
+        os.remove("address")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
 
 # URI: /
 # HTTP behavior: GET
@@ -43,10 +49,6 @@ api.add_resource(Webserver, '/')
 
 def command_line_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--index", metavar="<index file path>", help="Index file path", type=str, required=True)
-    parser.add_argument("-s", "--success", metavar="<success file path>", help="Success file path", type=str, required=True)
-    parser.add_argument("-f", "--failure", metavar="<failure file path>", help="Failure file path", type=str, required=True)
-    parser.add_argument("-v", "--valid", metavar="<valid file path>", help="Valid file path", type=str, required=True)
     parser.add_argument("-p", "--port", metavar="<web server's listening port>", help="Web server's listening port", type=int, required=True)
     parser.add_argument("-l", "--log", metavar="<log level (DEBUG/INFO/WARNING/ERROR/CRITICAL)>", help="Log level (DEBUG/INFO/WARNING/ERROR/CRITICAL)", type=str, default="INFO")
     args = parser.parse_args()
@@ -55,32 +57,25 @@ def command_line_args():
 def main():
     args = command_line_args()
     logging.basicConfig(level=args.log)
+    aname = "address"
 
-    if os.path.exists(args.index) and os.path.exists(args.success) and os.path.exists(args.failure) and os.path.exists(args.valid):
-        global index
-        global success
-        global failure
-        global valid
+    if not os.path.exists(aname):
+        cmd = ["./client", "--addr", "127.0.0.1", "--port", "5555", "--account", "tmp", "--password", "correctpassword"]
+        proc = subprocess.Popen(cmd)
+        time.sleep(1)
 
-        with open(args.index, "r") as f:
-            index = f.read()
+    global index
+    global success
+    global failure
+    global valid
 
-        with open(args.success, "r") as f:
-            success = f.read()
+    addr = get_address(aname)
+    index = make_index_html(addr)
+    success = make_success_html(addr)
+    failure = make_failure_html(addr)
+    valid = make_valid_html(addr)
 
-        with open(args.failure, "r") as f:
-            failure = f.read()
-
-        with open(args.valid, "r") as f:
-            valid = f.read()
-
-        app.run(host="0.0.0.0", port=args.port)
-    else:
-        logging.error("Some of the html files do not exist. Please insert the correct ones.")
-        logging.error("  - Index file: {} ({})".format(args.index, os.path.exists(args.index)))
-        logging.error("  - Success file: {} ({})".format(args.success, os.path.exists(args.success)))
-        logging.error("  - Failure file: {} ({})".format(args.failure, os.path.exists(args.failure)))
-        logging.error("  - Valid file: {} ({})".format(args.valid, os.path.exists(args.valid)))
+    app.run(host="0.0.0.0", port=args.port)
 
 if __name__ == "__main__":
     main()

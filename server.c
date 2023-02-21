@@ -19,15 +19,25 @@ void process(int sock)
   int pass;
   char buf[SBUFLEN];
   int ret, len;
+  FILE *fp;
 
   memset(buf, 0, SBUFLEN);
   pass = 0;
+  fp = fopen("address", "w");
 
   printf("[*] Address information\n");
   printf("    first: %p, second: %p, answer: %p\n", first, second, answer);
   printf("    correct: %p, incorrect: %p\n", correct, incorrect);
   printf("    buf: %p, ret: %p, len: %p, pass: %p\n", buf, &ret, &len, &pass);
   printf("    &(buf[0]): %p, &(buf[SBUFLEN]): %p\n", &(buf[0]), &(buf[SBUFLEN]));
+
+  fprintf(fp, "buf: %p\n", buf);
+  fprintf(fp, "ret: %p\n", &ret);
+  fprintf(fp, "len: %p\n", &len);
+  fprintf(fp, "pass: %p\n", &pass);
+  fprintf(fp, "answer: %p\n", answer);
+
+  fclose(fp);
 
   // Send the first message requiring an account
   len = strlen(first);
