@@ -24,7 +24,6 @@ signal.signal(signal.SIGINT, signal_handler)
 # GET: Get the available chain identifiers (e.g., year2019)
 class Webserver(Resource):
     def get(self):
-        logging.info("index: {}".format(index))
         return make_response(index)
 
     def post(self):
