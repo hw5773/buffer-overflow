@@ -98,9 +98,13 @@ void process(int sock)
   printf("\n");
   printf("[*] Received %d bytes\n", ret);
 
+  if (len > 40)
+    goto out;
+
   ret = read(sock, buf, len);
   if (ret < 0)
     error_handling("read() error");
+
   buf[len] = 0;
   printf("[*] Received %d bytes\n", ret);
 
@@ -119,6 +123,7 @@ void process(int sock)
   }
 
   //printf("\npass = %d\n\n", pass);
+out:
   if (pass)
   {
     printf("[*] The client is logged in and has the root privilege!\n");

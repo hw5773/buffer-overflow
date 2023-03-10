@@ -43,8 +43,17 @@ class Webserver(Resource):
             logging.info("Login failure")
             return make_response(failure)
 
+class Image(Resource):
+    def get(self, ifile):
+        image = None
+        if ifile != "favicon.ico":
+            with open(ifile, "rb") as f:
+                image = f.read()
+            return make_response(image)
+
 # The assignment of the mapping between the URI and the related class
 api.add_resource(Webserver, '/')
+api.add_resource(Image, '/<string:ifile>')
 
 def command_line_args():
     parser = argparse.ArgumentParser()
