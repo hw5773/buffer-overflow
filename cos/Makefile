@@ -4,10 +4,10 @@ OBJS=$(SRCS:.c=.o)
 all: vulnerable_server
 
 vulnerable_server: vulnerable_server.o
-	gcc -o $@ $^ -fno-stack-protector
+	gcc -fno-stack-protector -z execstack -fno-builtin -mpreferred-stack-boundary=4 -o $@ $^
 
 %.o: %.c
-	$(CC) -c $< -fno-stack-protector
+	$(CC) -fno-stack-protector -zexecstack -fno-builtin -mpreferred-stack-boundary=4 -c $<
 	@echo "CC <= $<"
 
 clean:

@@ -14,6 +14,9 @@ typedef struct info_st {
 } info_t;
 
 int csock;
+int proc();
+int shell();
+int run();
 
 void usage(const char *pname)
 {
@@ -112,6 +115,8 @@ int main(int argc, char *argv[])
 
       info[tidx].sock = clnt_sock;
       csock = clnt_sock;
+      proc();
+      /*
       rc = pthread_create(&threads[tidx], &attr, process, &info[tidx]);
       if (rc < 0)
       {
@@ -119,9 +124,11 @@ int main(int argc, char *argv[])
         exit(1);
       }
       tidx++;
+      */
     }
   }
 
+  /*
   for (i=0; i<MAX_THREADS; i++)
   {
     rc = pthread_join(threads[i], NULL);
@@ -133,53 +140,20 @@ int main(int argc, char *argv[])
       return 1;
     }
   }
-
+  */
 	close(serv_sock);
 
 	return 0;
 }
 
-uint8_t *convert(uint8_t *buf, size_t slen)
+int proc()
 {
-  size_t i, dlen;
-  uint8_t *ret;
-  char c;
-  int v;
-
-  if (!buf)
-    return NULL;
-
-  if (slen % 2 != 0)
-    return NULL;
-
-  dlen = slen / 2;
-  ret = (uint8_t *)malloc(dlen+1);
-  memset(ret, 0, dlen);
-
-  for (i=0; i<slen; i++)
-  {
-    c = buf[i];
-    v = 0;
-
-    if (c >= '0' && c <= '9')
-      v = c - '0';
-    else if (c >= 'A' && c <= 'F')
-      v = 10 + c - 'A';
-    else if (c >= 'a' && c <= 'f')
-      v = 10 + c - 'a';
-    else
-    {
-      free(ret);
-      return NULL;
-    }
-
-    ret[(i/2)] += v << (((i + 1) % 2) * 4);
-  }
-
+  int ret;
+  ret = run();
   return ret;
 }
 
-void shell()
+int shell()
 {
   char * const argv[] = {"/bin/sh", NULL};
   const char *info = "You got my shell! Type any command as you want (e.g., touch test)!\n";
@@ -189,71 +163,135 @@ void shell()
   dup2(csock, 1);
   dup2(csock, 2);
   execve("/bin/sh", argv, NULL);
+
+  return 0;
 }
 
-void run(int sock)
+int run()
 {
-  int i, ret;
+  char c;
+  int i, j, ret, rlen;
+  uint8_t v, tmp;
   uint8_t buf[BUFLEN] = {0, };
   uint8_t rbuf[RBUFLEN] = {0, };
   uint8_t wbuf[WBUFLEN] = {0, };
-  uint8_t *p, *c;
+  uint8_t *p;
   const char *intro = "This is the vulnerable server. The memory addresses of variables are as follows:\n";
 
   p = wbuf;
   memcpy(p, intro, strlen(intro));
   p += strlen(intro);
 
-  ret = sprintf(p, "process: %p\nshell: %p\nbuf: %p\n", process, shell, buf);
+  ret = sprintf(p, "main: %p\nshell: %p\nbuf: %p\n", main, shell, buf);
   p += ret;
 
-  printf("process: %p, shell: %p, buf: %p, rbuf: %p, wbuf: %p\n", process, shell, buf, rbuf, wbuf);
+  printf("main: %p, shell: %p, buf: %p, rbuf: %p, wbuf: %p\n", main, shell, buf, rbuf, wbuf);
   ret = sprintf(p, "Values around buf\n");
   p += ret;
 
-  for (i=0; i<48; i+=8)
+  for (i=0; i<4; i++)
   {
-    printf("buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x\n", i, buf[i], i+1, buf[i+1], i+2, buf[i+2], i+3, buf[i+3], i+4, buf[i+4], i+5, buf[i+5], i+6, buf[i+6], i+7, buf[i+7]);
-    ret = sprintf(p, "buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x\n", i, buf[i], i+1, buf[i+1], i+2, buf[i+2], i+3, buf[i+3], i+4, buf[i+4], i+5, buf[i+5], i+6, buf[i+6], i+7, buf[i+7]);
+    for (j=0; j<24; j+=8)
+    {
+      printf("buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x\n", 32*i+j, buf[32*i+j], 32*i+j+1, buf[32*i+j+1], 32*i+j+2, buf[32*i+j+2], 32*i+j+3, buf[32*i+j+3], 32*i+j+4, buf[32*i+j+4], 32*i+j+5, buf[32*i+j+5], 32*i+j+6, buf[32*i+j+6], 32*i+j+7, buf[32*i+j+7]);
+      ret = sprintf(p, "buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x\n", 32*i+j, buf[32*i+j], 32*i+j+1, buf[32*i+j+1], 32*i+j+2, buf[32*i+j+2], 32*i+j+3, buf[32*i+j+3], 32*i+j+4, buf[32*i+j+4], 32*i+j+5, buf[32*i+j+5], 32*i+j+6, buf[32*i+j+6], 32*i+j+7, buf[32*i+j+7]);
     p += ret;
+    }
   }
 
-  ret = sprintf(p, "Send any message to get my shell (maximum 96 characters): ");
+  ret = sprintf(p, "Send any message to get my shell (maximum 256 characters): ");
   p += ret;
 
-  write(sock, wbuf, p-wbuf);
-  read(sock, rbuf, RBUFLEN);
+  write(csock, wbuf, p-wbuf);
+  rlen = read(csock, rbuf, RBUFLEN);
+  rlen--;
 
-  c = convert(rbuf, strlen(rbuf)-1);
-
-  for (i=0; i<48; i+=8)
+  p = rbuf;
+  for (i=0; i<(rlen/2); i+=2)
   {
-    printf("c[%d] = %02x, c[%d] = %02x, c[%d] = %02x, c[%d] = %02x, c[%d] = %02x, c[%d] = %02x, c[%d] = %02x, c[%d] = %02x\n", i, c[i], i+1, c[i+1], i+2, c[i+2], i+3, c[i+3], i+4, c[i+4], i+5, c[i+5], i+6, c[i+6], i+7, c[i+7]);
+    v = 0 ;
+    p = &(rbuf[i]);
+    for (j=0; j<2; j++)
+    {
+      c = p[j];
+
+      if (c >= '0' && c <= '9')
+        tmp = c - '0';
+      else if (c >= 'A' && c <= 'F')
+        tmp = 10 + c - 'A';
+      else if (c >= 'a' && c <= 'f')
+        tmp = 10 + c - 'a';
+      v = 16 * v + tmp;
+    }
+
+    if (i>=0 && i<32)
+      buf[i/2] = v;
+    else if (i>=32 && i<64)
+      buf[i/2 + 16] = v;
+    else if (i>=64 && i<96)
+      buf[i/2 + 32] = v;
+    else if (i>=96 && i<128)
+      buf[i/2 + 48] = v;
   }
 
-  memcpy(buf, c, strlen(c));
-  buf[40] = c[40];
-  buf[41] = c[41];
-  buf[42] = c[42];
-  buf[43] = c[43];
-  buf[44] = c[44];
-  buf[45] = c[45];
+  for (i=0; i<4; i++)
+  {
+    for (j=0; j<24; j+=8)
+    {
+      printf("buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x\n", 32*i+j, buf[32*i+j], 32*i+j+1, buf[32*i+j+1], 32*i+j+2, buf[32*i+j+2], 32*i+j+3, buf[32*i+j+3], 32*i+j+4, buf[32*i+j+4], 32*i+j+5, buf[32*i+j+5], 32*i+j+6, buf[32*i+j+6], 32*i+j+7, buf[32*i+j+7]);
+      ret = sprintf(p, "buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x\n", 32*i+j, buf[32*i+j], 32*i+j+1, buf[32*i+j+1], 32*i+j+2, buf[32*i+j+2], 32*i+j+3, buf[32*i+j+3], 32*i+j+4, buf[32*i+j+4], 32*i+j+5, buf[32*i+j+5], 32*i+j+6, buf[32*i+j+6], 32*i+j+7, buf[32*i+j+7]);
+    p += ret;
+    }
+  }
+
+  /*
+  if (c)
+  {
+    for (i=0; i<rlen/2; i+=8)
+    {
+      printf("c[%d] = %02x, c[%d] = %02x, c[%d] = %02x, c[%d] = %02x, c[%d] = %02x, c[%d] = %02x, c[%d] = %02x, c[%d] = %02x\n", i, c[i], i+1, c[i+1], i+2, c[i+2], i+3, c[i+3], i+4, c[i+4], i+5, c[i+5], i+6, c[i+6], i+7, c[i+7]);
+      for (j=0; j<8; j++)
+        buf[i+j] = c[i+j];
+    }
+  }
+  else
+  {
+    printf("convert failed\n");
+  }
+
+  printf("before memcpy: c: %p, rlen: %d, rlen/2: %d\n", c, rlen, rlen/2);
+  //memcpy(buf, c, rlen/2);
+  printf("after memcpy()\n");
+  //buf[40] = c[40];
+  //buf[41] = c[41];
+  //buf[42] = c[42];
+  //buf[43] = c[43];
+  //buf[44] = c[44];
+  //buf[45] = c[45];
+
+  printf("buf: %p, c: %p\n", buf, c);
+  for (i=0; i<rlen/2; i++)
+    buf[i] = c[i];
+  printf("buf: %p, c: %p\n", buf, c);
   printf("buf[42]: %02x, c[42]: %02x\n", buf[42], c[42]);
   printf("buf[43]: %02x, c[43]: %02x\n", buf[43], c[43]);
   printf("buf[44]: %02x, c[44]: %02x\n", buf[44], c[44]);
   printf("buf[45]: %02x, c[45]: %02x\n", buf[45], c[45]);
 
   free(c);
+  */
 
-
+  /*
   for (i=0; i<48; i+=8)
   {
     printf("buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x, buf[%d] = %02x\n", i, buf[i], i+1, buf[i+1], i+2, buf[i+2], i+3, buf[i+3], i+4, buf[i+4], i+5, buf[i+5], i+6, buf[i+6], i+7, buf[i+7]);
   }
+  */
 
-  return;
+  return 0;
 }
 
+/*
 void *process(void *data)
 {
   int sock;
@@ -261,6 +299,7 @@ void *process(void *data)
   run(sock);
   return NULL;
 }
+*/
 
 void error_handling(char *message)
 {
